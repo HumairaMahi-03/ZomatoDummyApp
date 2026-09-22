@@ -1,6 +1,7 @@
 const userModel = require('../models/user.model');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const foodPartnerModel = require('../models/foodpartner.model');
 
 
 async function registerUser(req, res) {
@@ -50,7 +51,7 @@ async function loginUser(req,res){
 
 
     if(!isPasswordValid){
-    return res.status(400).jon ({ message: 'Invalid password' });
+    return res.status(400).json ({ message: 'Invalid password' });
     }
 
     res.cookie('token', jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' }));
@@ -67,7 +68,85 @@ async function loginUser(req,res){
 
 }
 
+async function logoutUser(req,res){
+
+    res.clearCookie('token');
+    res.status(200).json({ message: 'User logged out successfully' });
+}
+
+async function registerFoodPartner(req, res) {
+    
+    const { name, email, password } = req.body;
+
+    const isFoodPartnerAlreadyExist = await foodPartnerModel.findOne({ email });
+
+    if (isFoodPartnerAlreadyExist){
+            
+            return res.status(400).json({ message: 'Food Partner already exists' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const foodpartner = await foodPartnerModel.create({
+        name, 
+        email, 
+        password: hashedPassword
+    })
+
+    const token = jwt.sign({ id: foodpartner._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    res.cookie('token', token);
+
+    res.status(201).json({ message: 'Food Partner registered successfully', 
+        foodpartner : {
+            id: foodpartner._id,
+            name: foodpartner.name,
+            email: foodpartner.email,
+        },
+     });
+        
+}
+
+async function loginFoodPartner(req,res){
+    
+        const{ email, password} = req.body;
+    
+        const foodpartner = await foodPartnerModel.findOne({ email });
+    
+        if(!foodpartner){
+            return res.status(400).json({ message: 'Food Partner does not exist' });
+        }
+    
+        const isPasswordValid = await bcrypt.compare(password, foodpartner.password);
+    
+        if(!isPasswordValid){
+            return res.status(400).json({ message: 'Invalid password' });
+        }
+    
+        res.cookie('token', jwt.sign({ id: foodpartner._id }, process.env.JWT_SECRET, { expiresIn: '1h' }));
+    
+        res.status(200).json({ message: 'Food Partner logged in successfully', 
+            foodpartner : {
+                id: foodpartner._id,
+                name: foodpartner.name,
+                email: foodpartner.email,
+            },
+        });
+}
+
+async  function logoutFoodPartner(req,res){
+
+    res.clearCookie('token');
+    res.status(200).json({ message: 'Food Partner logged out successfully' });
+}
+
+
+
 module.exports = {
     registerUser,
-    loginUser
+    loginUser,
+    logoutUser,
+    registerFoodPartner,
+    loginFoodPartner,
+    logoutFoodPartner
 }
